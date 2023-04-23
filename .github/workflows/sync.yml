@@ -1,0 +1,38 @@
+name: Synchronize
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    outputs:
+      status: $${{ steps.check.outputs.status }}
+    steps:
+      - name: Check that the latest commit is less than 1 day old
+        id: check
+        continue-on-error: true
+        run: |
+          gh search commits \
+            --repo $UPSTREAM \
+            --committer-date=">$(date -d 'yesterday' +'%F')" \
+            --json id -q '"status=" + (if length >= 1 then 1 else 0 end | tostring)' \
+          >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM: docutils/docutils
+  synchronize:
+    needs: check
+    runs-on: ubuntu-latest
+    if: ${{ needs.check.outputs.status == 0 }}
+    steps:
+      - name: Synchronize the fork
+        run: gh repo sync $OWNER/$REPO
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
