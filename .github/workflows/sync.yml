@@ -1,0 +1,35 @@
+name: Synchronize
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      status: $${{ steps.check.outputs.status }}
+    steps:
+      - name: Check that the latest commit is less than 1 day old
+        continue-on-error: true
+        id: check
+        run: >
+          curl -s https://api.github.com/repos/docutils/docutils/commits/master | \
+            jq -e -r "(((now - (.commit.committer.date | fromdateiso8601)) / (60*60*24)) | trunc) < 1"
+          echo "status=$?" >> $GITHUB_OUTPUT
+  synchronize:
+    needs: check
+    runs-on: ubuntu-latest
+    if: ${{ needs.check.outputs.status == 0 }}
+    steps:
+      - name: Update
+        uses: tgymnich/fork-sync@v1.8
+        with:
+          owner: picnixz
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          base: master
+          head: master
+          merge_method: rebase
+          pr_title: Fork Sync
+          auto_approve: true
