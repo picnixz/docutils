@@ -17,5 +17,4 @@ sphinx:
 
 python:
   install:
-    - method: pip
-      path: sphinx-rtd-theme 
+    - requirements: docutils/docs/requirements.txt 
